@@ -46,21 +46,25 @@ LABEL org.opencontainers.image.source="https://github.com/smart-mcp-proxy/mcppro
       org.opencontainers.image.description="MCPProxy full image with shells, docker CLI, Node/npm (npx), Python/pip"
 
 ENV DEBIAN_FRONTEND=noninteractive
+ARG APT_PROXY
 
-RUN apt-get update \
+RUN --mount=type=cache,id=mcpproxy-apt-cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=mcpproxy-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    if [ -n "$APT_PROXY" ]; then echo "Acquire::http::Proxy \"$APT_PROXY\";" > /etc/apt/apt.conf.d/99proxy; fi \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg bash \
         docker.io \
         nodejs npm \
         python3 python3-pip python-is-python3 \
-    && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates \
     # Install uv/uvx (Astral) into /usr/local/bin for npx/uv workflows
     && curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh \
     && groupadd -g 65532 mcpproxy \
     && useradd -u 65532 -g 65532 -d /app -s /bin/bash mcpproxy \
     && mkdir -p /app \
-    && chown -R 65532:65532 /app
+    && chown -R 65532:65532 /app \
+    && rm -f /etc/apt/apt.conf.d/99proxy
 
 # Install binary in PATH and app data under /app
 COPY --from=builder /out/mcpproxy /usr/local/bin/mcpproxy
