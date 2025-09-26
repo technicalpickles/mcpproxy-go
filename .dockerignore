@@ -19,3 +19,17 @@ build/
 coverage*
 *.out
 
+# built binaries
+mcpproxy
+# documentation not needed during builds
+docs/
+ 
+# Large local caches and data not needed in build context
+.cache/
+data/
+tmp/
+*.log
+*.prof
+*.pprof
+go.work
+go.work.sum
