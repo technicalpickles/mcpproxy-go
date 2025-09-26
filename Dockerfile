@@ -55,6 +55,8 @@ RUN apt-get update \
         python3 python3-pip \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates \
+    # Install uv/uvx (Astral) into /usr/local/bin for npx/uv workflows
+    && curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh \
     && groupadd -g 65532 mcpproxy \
     && useradd -u 65532 -g 65532 -d /app -s /bin/bash mcpproxy \
     && mkdir -p /app \
