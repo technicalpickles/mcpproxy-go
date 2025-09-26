@@ -49,24 +49,30 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates curl gnupg \
+        ca-certificates curl gnupg bash \
         docker.io \
         nodejs npm \
         python3 python3-pip \
     && rm -rf /var/lib/apt/lists/* \
-    && update-ca-certificates
+    && update-ca-certificates \
+    && groupadd -g 65532 mcpproxy \
+    && useradd -u 65532 -g 65532 -d /app -s /bin/bash mcpproxy \
+    && mkdir -p /app \
+    && chown -R 65532:65532 /app
 
-WORKDIR /app
-COPY --from=builder /out/mcpproxy /mcpproxy
+# Install binary in PATH and app data under /app
+COPY --from=builder /out/mcpproxy /usr/local/bin/mcpproxy
 COPY --from=builder --chown=65532:65532 /outfs/app/ /app/
 
-# Run as non-root
-USER 65532:65532
-ENV HOME=/app
+# Environment and user
+ENV HOME=/app \
+    PATH=/usr/local/bin:/usr/bin:/bin
+USER mcpproxy
 EXPOSE 8080
 VOLUME ["/app"]
-ENTRYPOINT ["/mcpproxy"]
-CMD ["serve", "--tray=false", "--listen", ":8080", "--config", "/app/config/mcp_config.json", "--data-dir", "/app/data", "--log-dir", "/app/logs"]
+ENTRYPOINT ["mcpproxy"]
+# NOTE: config will be at /app/config/mcp_config.json, but using --config explicitly will make it fail unless it exists which makes first setup harder
+CMD ["serve", "--tray=false", "--listen", ":8080", "--data-dir", "/app/data", "--log-dir", "/app/logs"]
 
 
 # ------------------------------------------------------------
@@ -84,14 +90,16 @@ LABEL org.opencontainers.image.source="https://github.com/smart-mcp-proxy/mcppro
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.description="MCPProxy slim runtime (distroless)"
 
-WORKDIR /app
-COPY --from=builder /out/mcpproxy /mcpproxy
+COPY --from=builder /out/mcpproxy /usr/local/bin/mcpproxy
 COPY --from=builder --chown=65532:65532 /outfs/app/ /app/
+WORKDIR /app
 
 # Run as non-root (65532=nobody in distroless)
 USER 65532:65532
-ENV HOME=/app
+ENV HOME=/app \
+    PATH=/usr/local/bin:/usr/bin:/bin
 EXPOSE 8080
 VOLUME ["/app"]
-ENTRYPOINT ["/mcpproxy"]
-CMD ["serve", "--tray=false", "--listen", ":8080", "--config", "/app/config/mcp_config.json", "--data-dir", "/app/data", "--log-dir", "/app/logs"]
+ENTRYPOINT ["mcpproxy"]
+# NOTE: config will be at /app/config/mcp_config.json, but using --config explicitly will make it fail unless it exists which makes first setup harder
+CMD ["serve", "--tray=false", "--listen", ":8080", "--data-dir", "/app/data", "--log-dir", "/app/logs"]

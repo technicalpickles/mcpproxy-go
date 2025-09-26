@@ -7,31 +7,44 @@ GIT_SHA ?= $(shell git rev-parse HEAD)
 
 # Build and load both slim and full locally
 build:
+	# Apply args and tags per-target to avoid variable override issues
 	docker buildx bake dev \
-	  --set IMAGE=$(IMAGE) \
-	  --set VERSION=$(VERSION) \
-	  --set GIT_SHA=$(GIT_SHA)
+	  --set app-slim.args.VERSION=$(VERSION) \
+	  --set app-slim.args.GIT_SHA=$(GIT_SHA) \
+	  --set app-slim.tags=$(IMAGE):$(VERSION)-slim \
+	  --set app-slim.tags=$(IMAGE):latest-slim \
+	  --set app-full.args.VERSION=$(VERSION) \
+	  --set app-full.args.GIT_SHA=$(GIT_SHA) \
+	  --set app-full.tags=$(IMAGE):$(VERSION) \
+	  --set app-full.tags=$(IMAGE):latest
 
 # Build and load only the slim image
 build-slim:
 	docker buildx bake app-slim \
-	  --set IMAGE=$(IMAGE) \
-	  --set VERSION=$(VERSION) \
-	  --set GIT_SHA=$(GIT_SHA)
+	  --set app-slim.args.VERSION=$(VERSION) \
+	  --set app-slim.args.GIT_SHA=$(GIT_SHA) \
+	  --set app-slim.tags=$(IMAGE):$(VERSION)-slim \
+	  --set app-slim.tags=$(IMAGE):latest-slim
 
 # Build and load only the full image
 build-full:
 	docker buildx bake app-full \
-	  --set IMAGE=$(IMAGE) \
-	  --set VERSION=$(VERSION) \
-	  --set GIT_SHA=$(GIT_SHA)
+	  --set app-full.args.VERSION=$(VERSION) \
+	  --set app-full.args.GIT_SHA=$(GIT_SHA) \
+	  --set app-full.tags=$(IMAGE):$(VERSION) \
+	  --set app-full.tags=$(IMAGE):latest
 
 # Build multi-arch for both variants and push
 release:
 	docker buildx bake release --push \
-	  --set IMAGE=$(IMAGE) \
-	  --set VERSION=$(VERSION) \
-	  --set GIT_SHA=$(GIT_SHA)
+	  --set app-slim-multi.args.VERSION=$(VERSION) \
+	  --set app-slim-multi.args.GIT_SHA=$(GIT_SHA) \
+	  --set app-slim-multi.tags=$(IMAGE):$(VERSION)-slim \
+	  --set app-slim-multi.tags=$(IMAGE):latest-slim \
+	  --set app-full-multi.args.VERSION=$(VERSION) \
+	  --set app-full-multi.args.GIT_SHA=$(GIT_SHA) \
+	  --set app-full-multi.tags=$(IMAGE):$(VERSION) \
+	  --set app-full-multi.tags=$(IMAGE):latest
 
 # Show resolved bake plan (debug)
 print:
