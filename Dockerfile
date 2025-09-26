@@ -52,7 +52,7 @@ RUN apt-get update \
         ca-certificates curl gnupg bash \
         docker.io \
         nodejs npm \
-        python3 python3-pip \
+        python3 python3-pip python-is-python3 \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates \
     # Install uv/uvx (Astral) into /usr/local/bin for npx/uv workflows
