@@ -47,9 +47,11 @@ LABEL org.opencontainers.image.source="https://github.com/smart-mcp-proxy/mcppro
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG APT_PROXY
+ARG UV_VERSION=0.8.22
 
 RUN --mount=type=cache,id=mcpproxy-apt-cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=mcpproxy-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    --mount=type=cache,id=mcpproxy-uv-cache,target=/tmp/uv-cache,sharing=locked \
     if [ -n "$APT_PROXY" ]; then echo "Acquire::http::Proxy \"$APT_PROXY\";" > /etc/apt/apt.conf.d/99proxy; fi \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -58,8 +60,11 @@ RUN --mount=type=cache,id=mcpproxy-apt-cache,target=/var/cache/apt,sharing=locke
         nodejs npm \
         python3 python3-pip python-is-python3 \
     && update-ca-certificates \
-    # Install uv/uvx (Astral) into /usr/local/bin for npx/uv workflows
-    && curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh \
+    # Install uv/uvx (Astral) into /usr/local/bin for npx/uv workflows (cached by version)
+    && if [ ! -f "/tmp/uv-cache/install-${UV_VERSION}.sh" ]; then \
+         curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" -o "/tmp/uv-cache/install-${UV_VERSION}.sh"; \
+       fi \
+    && env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh "/tmp/uv-cache/install-${UV_VERSION}.sh" \
     && groupadd -g 65532 mcpproxy \
     && useradd -u 65532 -g 65532 -d /app -s /bin/bash mcpproxy \
     && mkdir -p /app \
