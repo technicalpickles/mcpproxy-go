@@ -1,25 +1,37 @@
-.PHONY: build release print build-tags
+.PHONY: build build-slim build-full release print
 
-IMAGE ?= mcpproxy-go
-VERSION ?= $(shell git rev-parse --short HEAD)
+# Override as needed: IMAGE=ghcr.io/you/mcpproxy VERSION=vX.Y.Z
+IMAGE  ?= ghcr.io/smart-mcp-proxy/mcpproxy
+VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
+GIT_SHA ?= $(shell git rev-parse HEAD)
 
-# Build and load single-platform image locally (bake group: dev)
-# Note: override the target's build arg directly. Variables in docker-bake.hcl
-# are not overridden via --set; use target attributes instead.
+# Build and load both slim and full locally
 build:
-	docker buildx bake dev --set app.args.VERSION=$(VERSION)
-
-# Build multi-arch and push (bake group: release)
-release:
-	docker buildx bake release --push --set app.args.VERSION=$(VERSION)
-
-# Optional: build with explicit tags (replaces/augments defaults)
-# Use two --set entries to specify multiple tags.
-build-tags:
 	docker buildx bake dev \
-	  --set app.args.VERSION=$(VERSION) \
-	  --set app.tags=$(IMAGE):$(VERSION) \
-	  --set app.tags=$(IMAGE):latest
+	  --set IMAGE=$(IMAGE) \
+	  --set VERSION=$(VERSION) \
+	  --set GIT_SHA=$(GIT_SHA)
+
+# Build and load only the slim image
+build-slim:
+	docker buildx bake app-slim \
+	  --set IMAGE=$(IMAGE) \
+	  --set VERSION=$(VERSION) \
+	  --set GIT_SHA=$(GIT_SHA)
+
+# Build and load only the full image
+build-full:
+	docker buildx bake app-full \
+	  --set IMAGE=$(IMAGE) \
+	  --set VERSION=$(VERSION) \
+	  --set GIT_SHA=$(GIT_SHA)
+
+# Build multi-arch for both variants and push
+release:
+	docker buildx bake release --push \
+	  --set IMAGE=$(IMAGE) \
+	  --set VERSION=$(VERSION) \
+	  --set GIT_SHA=$(GIT_SHA)
 
 # Show resolved bake plan (debug)
 print:
