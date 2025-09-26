@@ -1,0 +1,21 @@
+# Reduce build context size for faster builds
+.git
+.gitignore
+.DS_Store
+
+# CI and local notes
+.github/
+scratch/
+
+# Build artifacts
+bin/
+dist/
+build/
+*.tar.gz
+*.zip
+*.dmg
+
+# Test and coverage outputs
+coverage*
+*.out
+
