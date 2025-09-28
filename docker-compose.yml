@@ -1,0 +1,52 @@
+# Run images built by docker-bake.hcl. Provides slim and full variants
+# simultaneously with distinct ports.
+services:
+  # Slim (distroless) runtime
+  slim:
+    image: "${IMAGE:-ghcr.io/smart-mcp-proxy/mcpproxy}:${VERSION:-latest}-slim"
+    container_name: mcpproxy-slim
+    ports:
+      - "${PORT_SLIM:-8081}:8080"
+    volumes:
+      - type: bind
+        source: ./config
+        target: /app/config
+      - type: bind
+        source: ./data
+        target: /app/data
+      - type: bind
+        source: ./logs
+        target: /app/logs
+    restart: unless-stopped
+
+  # Full (Debian bookworm-slim with runtimes, docker CLI, node, python)
+  full:
+    image: "${IMAGE:-ghcr.io/smart-mcp-proxy/mcpproxy}:${VERSION:-latest}"
+    container_name: mcpproxy-full
+    ports:
+      - "${PORT_FULL:-8080}:8080"
+    volumes:
+      - type: bind
+        source: ./config
+        target: /app/config
+      - type: bind
+        source: ./data
+        target: /app/data
+      - type: bind
+        source: ./logs
+        target: /app/logs
+    restart: unless-stopped
+
+# Notes:
+# - Build images with Bake first (locally loaded):
+#     make build-slim        # tags: ${IMAGE}:${VERSION}-slim and :latest-slim
+#     make build-full        # tags: ${IMAGE}:${VERSION} and :latest
+#
+# - Bring up specific variant(s):
+#     docker compose up -d mcpproxy-slim
+#     docker compose up -d mcpproxy-full
+#     docker compose up -d               # both services
+#
+# - Override defaults at runtime:
+#     IMAGE=ghcr.io/you/mcpproxy VERSION=dev PORT_FULL=18080 PORT_SLIM=18081 \
+#       docker compose up -d mcpproxy-full
