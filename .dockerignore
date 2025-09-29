@@ -3,6 +3,11 @@
 .gitignore
 .DS_Store
 
+# Docker host stuff
+Dockerfile
+docker-bake.hcl
+docker-compose.yml
+
 # CI and local notes
 .github/
 scratch/

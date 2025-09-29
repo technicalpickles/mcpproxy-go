@@ -17,8 +17,10 @@ services:
       - "${PORT_FULL:-8080}:8080"
     volumes:
       - mcpproxy-app-full:/app
-      # Bind host Docker socket; allow override via DOCKER_HOST_SOCKET
-      - ${DOCKER_HOST_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      # Bind the engine host's Docker socket
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Helper check script for diagnostics
+      - ./scripts/docker-socket-check.sh:/usr/local/bin/docker-socket-check:ro
     environment:
       - DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
     group_add:

@@ -1,5 +1,5 @@
 .PHONY: build build-slim build-full release print \
-	run-slim run-full run-both down logs ps restart .dirs
+	run-slim run-full run-full-check run-both down logs ps restart .dirs
 
 # Override as needed: IMAGE=ghcr.io/you/mcpproxy VERSION=vX.Y.Z
 IMAGE  ?= ghcr.io/smart-mcp-proxy/mcpproxy
@@ -93,17 +93,36 @@ run-slim: build-slim .dirs
 # Run full variant (Debian with runtimes). Builds image first, then starts.
 run-full: build-full .dirs
 	@set -e; \
-	OS=$$(uname -s); \
-	if [ "$$OS" = "Linux" ]; then \
-	  GID=$$(getent group docker | cut -d: -f3 2>/dev/null || true); \
+	# Detect the GID that owns /var/run/docker.sock inside the engine (works on Linux/macOS/Windows)
+	if [ -z "$$DOCKER_GID" ]; then \
+	  GID=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock busybox:1.36 sh -lc 'stat -c %g /var/run/docker.sock 2>/dev/null || ls -ln /var/run/docker.sock | awk "{print \$4}"' || true); \
 	  if [ -n "$$GID" ]; then \
-	    echo "Using DOCKER_GID=$$GID"; \
+	    echo "Using DOCKER_GID=$$GID (from daemon socket owner)"; \
 	    export DOCKER_GID=$$GID; \
 	  else \
-	    echo "Warning: docker group not found; socket access may fail. Set DOCKER_GID manually if needed."; \
+	    echo "Warning: could not detect GID of /var/run/docker.sock; socket access may fail. Set DOCKER_GID manually if needed."; \
 	  fi; \
 	fi; \
 	IMAGE=$(IMAGE) VERSION=$(VERSION) $(DC) up -d full
+
+# Build, run, then verify Docker access from inside the container
+run-full-check: run-full
+	@echo "Verifying Docker access inside 'full' service..."; \
+	set -e; \
+	for i in $$(seq 1 10); do \
+	  if $(DC) exec -T full sh -lc 'command -v docker-socket-check >/dev/null 2>&1 && docker-socket-check || docker version >/dev/null 2>&1'; then \
+	    echo "Docker access OK inside container."; \
+	    exit 0; \
+	  fi; \
+	  echo "Waiting for container/docker... ($$i/10)"; \
+	  sleep 1; \
+	done; \
+	echo "ERROR: Docker CLI inside container cannot reach host daemon."; \
+	echo "--- debug: inside container ---"; \
+	$(DC) exec -T full sh -lc 'id; ls -l /var/run/docker.sock || true; getent group 2>/dev/null | grep docker || true'; \
+	echo "------------------------------"; \
+	echo "Hint: try setting DOCKER_GID to the socket GID shown above."; \
+	exit 1
 
 # Run both variants concurrently (distinct host ports)
 run-both: build .dirs
