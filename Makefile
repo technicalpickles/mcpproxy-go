@@ -1,5 +1,6 @@
 .PHONY: build build-slim build-full release print \
-	run-slim run-full run-full-check run-both down logs ps restart .dirs
+	run-slim run-full run-full-check run-both down logs ps restart .dirs \
+	context-snapshot context-list context-probe
 
 # Override as needed: IMAGE=ghcr.io/you/mcpproxy VERSION=vX.Y.Z
 IMAGE  ?= ghcr.io/smart-mcp-proxy/mcpproxy
@@ -143,3 +144,35 @@ ps:
 # Restart currently running compose services
 restart:
 	$(DC) restart
+
+# -----------------------------------------------------------------------------
+# Docker context helpers (verify .dockerignore behavior)
+# -----------------------------------------------------------------------------
+
+# Snapshot the Docker build context (after .dockerignore) to a local folder.
+# Inspect: .docker-context-snapshot/snapshot
+context-snapshot:
+	@rm -rf .docker-context-snapshot
+	@echo "Building context snapshot to .docker-context-snapshot/..."
+	@printf 'FROM scratch\nCOPY . /snapshot\n' | docker buildx build -f - --output type=local,dest=.docker-context-snapshot .
+	@echo "Done. See .docker-context-snapshot/snapshot"
+
+# List files included in the build context (uses the snapshot above).
+context-list: context-snapshot
+	@echo "Files in Docker context (top 3 levels):"
+	@cd .docker-context-snapshot/snapshot && find . -maxdepth 3 -print | sort
+
+# Probe for a specific file path in the context snapshot.
+# Usage: make context-probe FILE=path/to/file
+FILE ?=
+context-probe: context-snapshot
+	@if [ -z "$(FILE)" ]; then \
+	  echo "Usage: make context-probe FILE=path/to/file"; \
+	  exit 2; \
+	fi
+	@if [ -e ".docker-context-snapshot/snapshot/$(FILE)" ]; then \
+	  echo "FOUND: $(FILE)"; \
+	else \
+	  echo "MISSING: $(FILE)"; \
+	  exit 1; \
+	fi

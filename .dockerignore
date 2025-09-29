@@ -3,14 +3,16 @@
 .gitignore
 .DS_Store
 
-# Docker host stuff
+# Docker & build stuff that wouldn't go into the image
+.dockerignore
+Makefile
 Dockerfile
 docker-bake.hcl
 docker-compose.yml
+.golangci.yml
 
-# CI and local notes
+# CI
 .github/
-scratch/
 
 # Build artifacts
 bin/
@@ -28,6 +30,14 @@ coverage*
 mcpproxy
 # documentation not needed during builds
 docs/
+*.md
+LICENSE
+
+# scripts not needed in the container
+scripts/
+
+# logs
+logs/
  
 # Large local caches and data not needed in build context
 .cache/

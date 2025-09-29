@@ -5,10 +5,11 @@
 # ------------------------------------------------------------
 ARG GO_VERSION=1.23
 FROM golang:${GO_VERSION}-alpine AS builder
+ARG VERSION=dev
 
 WORKDIR /src
 
-# Reproducible, portable Linux build (no tray)
+# More reproducible, portable Linux build (cgo disabled)
 ENV CGO_ENABLED=0 \
     GOFLAGS=-trimpath
 
@@ -17,11 +18,11 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-# Copy the rest of the source
-COPY . .
+# Copy only source directories
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
 
 # Build with module and build caches
-ARG VERSION=dev
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -tags nogui -ldflags "-s -w -X mcpproxy-go/cmd/mcpproxy.version=${VERSION} -X main.version=${VERSION}" -o /out/mcpproxy ./cmd/mcpproxy
@@ -39,6 +40,8 @@ FROM debian:bookworm-slim AS full
 
 ARG VERSION=dev
 ARG GIT_SHA=unknown
+ARG APT_PROXY
+ARG UV_VERSION=0.8.22
 
 LABEL org.opencontainers.image.source="https://github.com/smart-mcp-proxy/mcpproxy-go" \
       org.opencontainers.image.version="${VERSION}" \
@@ -46,8 +49,8 @@ LABEL org.opencontainers.image.source="https://github.com/smart-mcp-proxy/mcppro
       org.opencontainers.image.description="MCPProxy full image with shells, docker CLI, Node/npm (npx), Python/pip"
 
 ENV DEBIAN_FRONTEND=noninteractive
-ARG APT_PROXY
-ARG UV_VERSION=0.8.22
+ENV HOME=/app \
+    PATH=/usr/local/bin:/usr/bin:/bin
 
 RUN --mount=type=cache,id=mcpproxy-apt-cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=mcpproxy-apt-lists,target=/var/lib/apt/lists,sharing=locked \
@@ -75,9 +78,6 @@ RUN --mount=type=cache,id=mcpproxy-apt-cache,target=/var/cache/apt,sharing=locke
 COPY --from=builder /out/mcpproxy /usr/local/bin/mcpproxy
 COPY --from=builder --chown=65532:65532 /outfs/app/ /app/
 
-# Environment and user
-ENV HOME=/app \
-    PATH=/usr/local/bin:/usr/bin:/bin
 USER mcpproxy
 EXPOSE 8080
 VOLUME ["/app"]
