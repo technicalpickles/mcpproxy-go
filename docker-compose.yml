@@ -4,37 +4,25 @@ services:
   # Slim (distroless) runtime
   slim:
     image: "${IMAGE:-ghcr.io/smart-mcp-proxy/mcpproxy}:${VERSION:-latest}-slim"
-    container_name: mcpproxy-slim
     ports:
       - "${PORT_SLIM:-8081}:8080"
     volumes:
-      - type: bind
-        source: ./config
-        target: /app/config
-      - type: bind
-        source: ./data
-        target: /app/data
-      - type: bind
-        source: ./logs
-        target: /app/logs
+      - mcpproxy-app-slim:/app
     restart: unless-stopped
 
   # Full (Debian bookworm-slim with runtimes, docker CLI, node, python)
   full:
     image: "${IMAGE:-ghcr.io/smart-mcp-proxy/mcpproxy}:${VERSION:-latest}"
-    container_name: mcpproxy-full
     ports:
       - "${PORT_FULL:-8080}:8080"
     volumes:
-      - type: bind
-        source: ./config
-        target: /app/config
-      - type: bind
-        source: ./data
-        target: /app/data
-      - type: bind
-        source: ./logs
-        target: /app/logs
+      - mcpproxy-app-full:/app
+      # Bind host Docker socket; allow override via DOCKER_HOST_SOCKET
+      - ${DOCKER_HOST_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+    environment:
+      - DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
+    group_add:
+      - "${DOCKER_GID:-0}"
     restart: unless-stopped
 
 # Notes:
@@ -50,3 +38,7 @@ services:
 # - Override defaults at runtime:
 #     IMAGE=ghcr.io/you/mcpproxy VERSION=dev PORT_FULL=18080 PORT_SLIM=18081 \
 #       docker compose up -d mcpproxy-full
+
+volumes:
+  mcpproxy-app-slim: {}
+  mcpproxy-app-full: {}

@@ -92,6 +92,17 @@ run-slim: build-slim .dirs
 
 # Run full variant (Debian with runtimes). Builds image first, then starts.
 run-full: build-full .dirs
+	@set -e; \
+	OS=$$(uname -s); \
+	if [ "$$OS" = "Linux" ]; then \
+	  GID=$$(getent group docker | cut -d: -f3 2>/dev/null || true); \
+	  if [ -n "$$GID" ]; then \
+	    echo "Using DOCKER_GID=$$GID"; \
+	    export DOCKER_GID=$$GID; \
+	  else \
+	    echo "Warning: docker group not found; socket access may fail. Set DOCKER_GID manually if needed."; \
+	  fi; \
+	fi; \
 	IMAGE=$(IMAGE) VERSION=$(VERSION) $(DC) up -d full
 
 # Run both variants concurrently (distinct host ports)
