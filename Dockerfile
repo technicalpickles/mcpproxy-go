@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
 # ------------------------------------------------------------
-# Builder
+# Builder: for compiling mcpproxy
+# We don't need to worry about how many layers there are, because the binary will be COPY'd from it
 # ------------------------------------------------------------
 ARG GO_VERSION=1.23
 FROM golang:${GO_VERSION}-alpine AS builder
@@ -49,8 +50,6 @@ LABEL org.opencontainers.image.source="https://github.com/smart-mcp-proxy/mcppro
       org.opencontainers.image.description="MCPProxy full image with shells, docker CLI, Node/npm (npx), Python/pip"
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV HOME=/app \
-    PATH=/usr/local/bin:/usr/bin:/bin
 
 RUN --mount=type=cache,id=mcpproxy-apt-cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,id=mcpproxy-apt-lists,target=/var/lib/apt/lists,sharing=locked \
@@ -78,6 +77,8 @@ RUN --mount=type=cache,id=mcpproxy-apt-cache,target=/var/cache/apt,sharing=locke
 COPY --from=builder /out/mcpproxy /usr/local/bin/mcpproxy
 COPY --from=builder --chown=65532:65532 /outfs/app/ /app/
 
+ENV HOME=/app \
+    PATH=/usr/local/bin:/usr/bin:/bin
 USER mcpproxy
 EXPOSE 8080
 VOLUME ["/app"]
