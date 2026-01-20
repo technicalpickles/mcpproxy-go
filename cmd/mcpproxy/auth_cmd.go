@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/cliclient"
+	clioutput "github.com/smart-mcp-proxy/mcpproxy-go/internal/cli/output"
 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/config"
 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/contracts"
 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/logs"
 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/socket"
+	"github.com/smart-mcp-proxy/mcpproxy-go/internal/stringutil"
 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/upstream/cli"
 
 	"github.com/spf13/cobra"
@@ -219,15 +221,18 @@ func runAuthStatusClientMode(ctx context.Context, dataDir, serverName string, al
 		}
 	}
 
-	// Display OAuth status
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("🔐 OAuth Authentication Status")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
+	// Get the output formatter based on global flags
+	formatter, err := GetOutputFormatter()
+	if err != nil {
+		return clioutput.NewStructuredError(clioutput.ErrCodeInvalidOutputFormat, err.Error()).
+			WithGuidance("Use -o table, -o json, or -o yaml")
+	}
 
-	hasOAuthServers := false
+	outputFormat := ResolveOutputFormat()
+
+	// Filter to only OAuth servers
+	oauthServers := make([]map[string]interface{}, 0)
 	for _, srv := range servers {
-		name, _ := srv["name"].(string)
 		oauth, _ := srv["oauth"].(map[string]interface{})
 		authenticated, _ := srv["authenticated"].(bool)
 		lastError, _ := srv["last_error"].(string)
@@ -237,14 +242,36 @@ func runAuthStatusClientMode(ctx context.Context, dataDir, serverName string, al
 		// 2. Has OAuth-related error OR
 		// 3. Is authenticated (has OAuth token)
 		isOAuthServer := (oauth != nil) ||
-			containsIgnoreCase(lastError, "oauth") ||
+			stringutil.ContainsIgnoreCase(lastError, "oauth") ||
 			authenticated
 
-		if !isOAuthServer {
-			continue // Skip non-OAuth servers
+		if isOAuthServer {
+			oauthServers = append(oauthServers, srv)
 		}
+	}
 
-		hasOAuthServers = true
+	// For structured formats (json, yaml), output raw OAuth server data
+	if outputFormat == "json" || outputFormat == "yaml" {
+		result, err := formatter.Format(oauthServers)
+		if err != nil {
+			return fmt.Errorf("failed to format output: %w", err)
+		}
+		fmt.Println(result)
+		return nil
+	}
+
+	// For table format, use the original pretty output
+	// Display OAuth status
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("🔐 OAuth Authentication Status")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+
+	hasOAuthServers := len(oauthServers) > 0
+	for _, srv := range oauthServers {
+		name, _ := srv["name"].(string)
+		oauth, _ := srv["oauth"].(map[string]interface{})
+		lastError, _ := srv["last_error"].(string)
 
 		// Use unified health status from backend (FR-006, FR-007)
 		var healthLevel, adminState, healthSummary, healthAction string
@@ -556,11 +583,6 @@ func runAuthLoginStandalone(ctx context.Context, serverName string) error {
 	fmt.Printf("🎉 You can now use tools from this server.\n")
 
 	return nil
-}
-
-// containsIgnoreCase checks if a string contains a substring (case-insensitive)
-func containsIgnoreCase(s, substr string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 // displayOAuthFlowError displays a structured OAuth flow error with rich formatting.

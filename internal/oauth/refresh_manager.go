@@ -36,6 +36,13 @@ const (
 	// MaxExpiredTokenAge is how long after token expiration we continue retrying
 	// before giving up completely. After this duration, we assume the refresh token
 	// is no longer valid even if it wasn't explicitly rejected.
+	//
+	// Rationale for 24 hours:
+	// - Balances recovery window for temporary outages with cleanup of stale tokens
+	// - Most OAuth providers expire refresh tokens after 30-90 days of inactivity
+	// - Gives users a reasonable grace period to return and fix connectivity issues
+	// - Prevents indefinite retry loops for truly expired tokens
+	// - Aligns with common retry policies (e.g., GitHub's 24h window for actions)
 	MaxExpiredTokenAge = 24 * time.Hour
 )
 
